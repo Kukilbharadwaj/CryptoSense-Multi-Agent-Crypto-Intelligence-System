@@ -1,27 +1,50 @@
-# 🔮 CryptoSense — Multi-Agent Crypto Intelligence System
+# 🔮 CryptoSense
 
-<p align="center">
-  <strong>AI-Powered Cryptocurrency Intelligence Platform</strong>
-</p>
+**Multi-Agent Crypto Intelligence System**
 
-<p align="center">
-  Built with LangGraph | Groq Cloud (Llama 3.3 70B) | CoinGecko | RSS News | Wikipedia
-</p>
+AI-powered cryptocurrency analysis using LangGraph, Groq Cloud, and real-time data sources.
 
 ---
 
-## 🎯 Overview
+## 🚀 Quick Start
 
-CryptoSense is a sophisticated multi-agent AI system that provides comprehensive cryptocurrency intelligence by combining real-time market data, news analysis, and educational content. The system uses LangGraph for orchestrating multiple specialized agents that work together to deliver actionable insights.
+### 1. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Set API Key
+Create a `.env` file:
+```env
+GROQ_API_KEY=your_groq_api_key_here
+```
+
+### 3. Run
+```bash
+# CLI (verbose logging)
+python main.py
+
+# Web UI
+python gradio_app.py
+```
+
+---
 
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        USER INTERFACE                           │
-│                         (CLI / API)                             │
+│                    (CLI / Gradio Web UI)                        │
 └─────────────────────┬───────────────────────────────────────────┘
                       │ User Query
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    VALIDATION LAYER                             │
+│  • Input sanitization (XSS, SQL injection protection)           │
+│  • Rate limiting (20 req/min)                                   │
+│  • Output sanitization                                          │
+└─────────────────────┬───────────────────────────────────────────┘
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                   ORCHESTRATOR AGENT                            │
@@ -29,8 +52,7 @@ CryptoSense is a sophisticated multi-agent AI system that provides comprehensive
 │                                                                 │
 │  • Parses user intent                                           │
 │  • Extracts cryptocurrency identifier                           │
-│  • Routes tasks to appropriate agents                           │
-│  • Controls workflow execution                                  │
+│  • Routes tasks to sub-agents                                   │
 └────────┬──────────────────┬──────────────────┬─────────────────┘
          │                  │                  │
          ▼                  ▼                  ▼
@@ -42,7 +64,7 @@ CryptoSense is a sophisticated multi-agent AI system that provides comprehensive
 │ • Live prices  │ │ • Latest news  │ │ • Coin origin & history│
 │ • Market cap   │ │ • Headlines    │ │ • Founder info         │
 │ • Volume       │ │ • Summaries    │ │ • Use case & tech      │
-│ • % changes    │ │ • Related news │ │ • Educational content  │
+│ • % changes    │ │                │ │                        │
 │ • Trending     │ │                │ │                        │
 └────────┬───────┘ └───────┬────────┘ └──────────┬─────────────┘
          │                 │                      │
@@ -53,8 +75,8 @@ CryptoSense is a sophisticated multi-agent AI system that provides comprehensive
 │                    ANALYST AGENT                                │
 │               (Synthesis & Reasoning Layer)                     │
 │                                                                 │
-│  • Cross-references market data + news + knowledge              │
-│  • Detects conflicting signals                                  │
+│  • Cross-references market data + news sentiment + background   │
+│  • Detects signal conflicts (e.g. price up, news negative)      │
 │  • Generates confidence scores                                  │
 │  • Produces structured intelligence report                      │
 └─────────────────────────────────────────────────────────────────┘
@@ -69,176 +91,105 @@ CryptoSense is a sophisticated multi-agent AI system that provides comprehensive
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## 🛠️ Features
-
-### Multi-Agent System
-- **Orchestrator Agent**: Parses user intent and coordinates all agents
-- **Market Agent**: Fetches real-time data from CoinGecko
-- **News Agent**: Aggregates crypto news via RSS feeds
-- **Knowledge Agent**: Provides educational content from Wikipedia
-- **Analyst Agent**: Synthesizes all data into actionable intelligence
-
-### Tools (No API Keys Required)
-| Tool | Source | Data |
-|------|--------|------|
-| `get_coin_price` | CoinGecko | Live prices, 24h change, market cap, volume |
-| `get_trending_coins` | CoinGecko | Currently trending cryptocurrencies |
-| `get_coin_details` | CoinGecko | Detailed coin information, ATH, supply |
-| `get_crypto_news` | CoinDesk RSS | News specific to a cryptocurrency |
-| `get_general_crypto_news` | CoinDesk RSS | Latest general crypto headlines |
-| `get_wiki_summary` | Wikipedia | Educational summaries |
-| `get_crypto_history` | Wikipedia | Historical and foundational info |
-
-### System Design Features
-- ✅ **Infinite Loop Prevention**: Maximum step counter prevents runaway execution
-- ✅ **Cost Efficient**: Limited token usage, efficient tool calling
-- ✅ **Error Handling**: Graceful error handling at every layer
-- ✅ **Modular Architecture**: Clean separation of concerns
-- ✅ **State Management**: LangGraph state tracking throughout workflow
-
-## 📦 Installation
-
-### 1. Clone the Repository
-```bash
-cd CryptoSense-Multi-Agent-Crypto-Intelligence-System
-```
-
-### 2. Create Virtual Environment
-```bash
-python -m venv venv
-
-# Windows
-.\venv\Scripts\Activate.ps1
-
-# Linux/Mac
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Configure Environment
-The `.env` file is already configured with your Groq API key.
-
-## 🚀 Usage
-
-### Interactive Mode (CLI)
-```bash
-python main.py
-```
-
-### Single Query Mode
-```bash
-python main.py "What is Bitcoin's current price?"
-```
-
-### Example Queries
-- `"What is Ethereum's current price?"`
-- `"Tell me about Solana"`
-- `"Latest crypto news"`
-- `"What's trending in crypto?"`
-- `"Give me a full analysis of Cardano"`
-
-## 📁 Project Structure
-
-```
-CryptoSense-Multi-Agent-Crypto-Intelligence-System/
-├── main.py           # CLI entry point
-├── workflow.py       # LangGraph workflow definition
-├── agents.py         # Agent implementations
-├── state.py          # State schema definitions
-├── tools.py          # Tool implementations
-├── requirements.txt  # Python dependencies
-├── .env              # Environment variables (API keys)
-└── README.md         # This file
-```
-
-## 🔧 File Descriptions
-
-| File | Description |
-|------|-------------|
-| `main.py` | Main CLI interface with interactive and single-query modes |
-| `workflow.py` | LangGraph workflow definition connecting all agents |
-| `agents.py` | All agent implementations (Orchestrator, Market, News, Knowledge, Analyst) |
-| `state.py` | TypedDict state schema for the workflow |
-| `tools.py` | All tool implementations (CoinGecko, RSS, Wikipedia) |
-
-## ⚙️ Configuration
-
-### Environment Variables
-```env
-GROQ_API_KEY=your_groq_api_key_here
-```
-
-### Model Settings (in agents.py)
-```python
-ChatGroq(
-    model="llama-3.3-70b-versatile",
-    temperature=0,
-    max_tokens=1024  # Adjustable for cost control
-)
-```
-
-### Safety Settings
-```python
-MAX_STEPS = 10  # Prevents infinite loops
-```
-
-## 📊 Sample Output
-
-```
-═══════════════════════════════════════
-     CRYPTOSENSE INTELLIGENCE REPORT
-═══════════════════════════════════════
-
-📊 MARKET SNAPSHOT
-Bitcoin is currently trading at $67,234.50
-• 24h Change: +2.34%
-• Market Cap: $1.32T
-• 24h Volume: $28.5B
-
-📰 NEWS DIGEST
-Recent news sentiment: Neutral to Bullish
-• Bitcoin ETF inflows continue strong momentum
-• Institutional adoption growing
-
-📚 BACKGROUND BRIEF
-Bitcoin is a decentralized digital currency created in 2009 
-by Satoshi Nakamoto. It operates on blockchain technology...
-
-🎯 ANALYSIS & SIGNALS
-Market indicators show continued strength with healthy volume.
-No significant conflicting signals detected.
-
-📈 SENTIMENT: Bullish
-🔒 CONFIDENCE: Medium
-
-⚠️ RISK FACTORS
-• Market volatility remains high
-• Regulatory uncertainty in some regions
-
-═══════════════════════════════════════
-```
-
-## 🛡️ Safety Features
-
-1. **Step Limiting**: Maximum 10 steps per query to prevent infinite loops
-2. **Timeout Handling**: API calls have 10-second timeouts
-3. **Error Recovery**: Graceful handling of API failures
-4. **Token Limits**: Max tokens per LLM call for cost control
-
-## 🤝 Contributing
-
-Feel free to submit issues and pull requests!
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
+**Flow**: Parallel agent execution with LangGraph state management.
 
 ---
 
-<p align="center">
-  Built with ❤️ using LangGraph, Groq Cloud, and open APIs
-</p>
+## 📦 Project Files
+
+| File | Purpose |
+|------|---------|
+| `main.py` | CLI with verbose tool logging |
+| `gradio_app.py` | Web UI interface |
+| `workflow.py` | LangGraph workflow definition |
+| `agents.py` | 5 specialized agents |
+| `tools.py` | 7 API tools (CoinGecko, RSS, Wikipedia) |
+| `state.py` | Workflow state schema |
+| `validation.py` | Input/output security layer |
+
+---
+
+## 🔧 Usage Examples
+
+### CLI
+```bash
+python main.py "What is Bitcoin's price?"
+python main.py "Tell me about Ethereum"
+```
+
+### Web UI
+```bash
+python gradio_app.py
+# Open http://localhost:7860
+```
+
+### Example Queries
+- "What is Bitcoin's current price?"
+- "Tell me about Ethereum"
+- "What's trending in crypto?"
+- "Latest crypto news"
+- "Give me a full analysis of Solana"
+
+---
+
+## 🛠️ Tools & APIs
+
+**No API keys needed** for data sources:
+
+| Tool | Source | Data |
+|------|--------|------|
+| Market | CoinGecko | Price, volume, market cap, trending |
+| News | CoinDesk RSS | Headlines, summaries |
+| Knowledge | Wikipedia | History, technology, founders |
+
+**AI Model**: Groq Cloud (Llama 3.3 70B) - requires API key
+
+---
+
+## 🛡️ Security Features
+
+- ✅ Input validation (XSS, SQL injection protection)
+- ✅ Output sanitization
+- ✅ Rate limiting (20 requests/minute)
+- ✅ Step counter (prevents infinite loops)
+- ✅ Timeout handling (10s per API call)
+
+---
+
+## 📊 Output Format
+
+```
+CRYPTOSENSE INTELLIGENCE REPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 Market Snapshot
+📰 News Digest
+📚 Background Brief
+🎯 Analysis & Signals
+📈 Sentiment: Bullish/Bearish/Neutral
+🔒 Confidence: Low/Medium/High
+⚠️ Risk Factors
+```
+
+---
+
+## ⚙️ Configuration
+
+**Adjust in `agents.py`:**
+```python
+MAX_STEPS = 10        # Prevent infinite loops
+max_tokens = 1024     # Cost control
+temperature = 0       # Deterministic output
+```
+
+---
+
+## 📄 License
+
+MIT License
+
+---
+
+**Built with** LangGraph • Groq • CoinGecko • Wikipedia
+
+⚠️ *For informational purposes only. Not financial advice.*

@@ -173,10 +173,8 @@ Common coin mappings:
 def market_agent(state: AgentState) -> AgentState:
     """
     Fetches market data using CoinGecko tools.
+    Always runs in parallel architecture.
     """
-    if "market" not in state["tasks"]:
-        return state
-    
     if state["step_count"] >= MAX_STEPS:
         return state
     
@@ -216,10 +214,8 @@ def market_agent(state: AgentState) -> AgentState:
 def news_agent(state: AgentState) -> AgentState:
     """
     Fetches news using RSS feed tools.
+    Always runs in parallel architecture.
     """
-    if "news" not in state["tasks"]:
-        return state
-    
     if state["step_count"] >= MAX_STEPS:
         return state
     
@@ -250,10 +246,8 @@ def news_agent(state: AgentState) -> AgentState:
 def knowledge_agent(state: AgentState) -> AgentState:
     """
     Fetches educational information using Wikipedia tools.
+    Always runs in parallel architecture.
     """
-    if "knowledge" not in state["tasks"]:
-        return state
-    
     if state["step_count"] >= MAX_STEPS:
         return state
     

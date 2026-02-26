@@ -2,15 +2,40 @@
 CryptoSense State Module
 ========================
 Defines the shared state for the multi-agent LangGraph workflow.
+Supports parallel agent execution with proper reducers.
 """
 
 from typing import TypedDict, Annotated, List, Optional
 from operator import add
 
 
+def keep_last(a: str, b: str) -> str:
+    """Reducer that keeps the last non-empty value."""
+    return b if b else a
+
+
+def keep_last_int(a: int, b: int) -> int:
+    """Reducer for integers - keeps the max."""
+    return max(a, b)
+
+
+def keep_first_list(a: List[str], b: List[str]) -> List[str]:
+    """Reducer that keeps the first non-empty list."""
+    return a if a else b
+
+
+def merge_error(a: Optional[str], b: Optional[str]) -> Optional[str]:
+    """Reducer that keeps any error."""
+    if a and b:
+        return f"{a}; {b}"
+    return a or b
+
+
 class AgentState(TypedDict):
     """
     Shared state for all agents in the CryptoSense system.
+    
+    All fields use reducers to support parallel agent execution.
     
     Attributes:
         query: Original user query
@@ -20,28 +45,29 @@ class AgentState(TypedDict):
         knowledge_data: Data from Knowledge Agent
         analysis: Synthesized analysis from Analyst Agent
         final_report: Final intelligence report
-        messages: Conversation history
+        messages: Conversation history (appends)
         step_count: Counter to prevent infinite loops
         error: Any error messages
+        tasks: Which agents to invoke
     """
-    # Input
-    query: str
-    coin_id: str
+    # Input - set by orchestrator, read by all
+    query: Annotated[str, keep_last]
+    coin_id: Annotated[str, keep_last]
     
-    # Agent outputs
-    market_data: str
-    news_data: str
-    knowledge_data: str
-    analysis: str
-    final_report: str
+    # Agent outputs - each agent writes its own field
+    market_data: Annotated[str, keep_last]
+    news_data: Annotated[str, keep_last]
+    knowledge_data: Annotated[str, keep_last]
+    analysis: Annotated[str, keep_last]
+    final_report: Annotated[str, keep_last]
     
     # Control flow
-    messages: Annotated[List[str], add]
-    step_count: int
-    error: Optional[str]
+    messages: Annotated[List[str], add]  # Appends messages
+    step_count: Annotated[int, keep_last_int]
+    error: Annotated[Optional[str], merge_error]
     
     # Task routing
-    tasks: List[str]  # Which agents to invoke
+    tasks: Annotated[List[str], keep_first_list]
 
 
 def create_initial_state(query: str) -> AgentState:

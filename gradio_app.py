@@ -7,12 +7,6 @@ Minimalist web interface for the multi-agent system.
 import gradio as gr
 from workflow import run_query_with_trace
 from validation import validate_input, validate_output, rate_limiter
-from tools import (
-    get_coin_price,
-    get_trending_coins,
-    get_crypto_news,
-    get_general_crypto_news
-)
 
 
 def process_query(query: str):
@@ -21,12 +15,12 @@ def process_query(query: str):
     # Rate limiting check
     if not rate_limiter.is_allowed():
         wait_time = rate_limiter.get_wait_time()
-        return f"⏳ Rate limit reached. Please wait {wait_time} seconds.", ""
+        return f"⏳ Rate limit reached. Please wait {wait_time} seconds."
     
     # Input validation
     is_valid, sanitized_query, error = validate_input(query)
     if not is_valid:
-        return f"❌ {error}", ""
+        return f"❌ {error}"
     
     try:
         # Run multi-agent workflow
@@ -35,100 +29,48 @@ def process_query(query: str):
         # Output validation
         _, sanitized_report = validate_output(report)
         
-        # Format trace info
-        trace_text = format_trace(trace)
+        return sanitized_report
         
-        return sanitized_report, trace_text
-        
-    except Exception as e:
-        return f"❌ Error: {str(e)}", ""
-
-
-def format_trace(trace: dict) -> str:
-    """Format trace information cleanly."""
-    lines = [
-        "─" * 40,
-        "EXECUTION TRACE",
-        "─" * 40,
-        f"Coin: {trace.get('coin_identified', 'N/A')}",
-        f"Tasks: {', '.join(trace.get('tasks_executed', []))}",
-        f"Steps: {trace.get('step_count', 0)}",
-        "",
-        "Agent Flow:",
-    ]
-    
-    for msg in trace.get('messages', []):
-        lines.append(f"  → {msg}")
-    
-    if trace.get('error'):
-        lines.append(f"\n⚠️ Error: {trace['error']}")
-    
-    lines.append("─" * 40)
-    return "\n".join(lines)
-
-
-def quick_price(coin: str):
-    """Get quick price for a coin."""
-    is_valid, sanitized, error = validate_input(coin)
-    if not is_valid:
-        return f"❌ {error}"
-    
-    try:
-        result = get_coin_price.invoke({"coin_id": sanitized.lower()})
-        _, sanitized_result = validate_output(result)
-        return sanitized_result
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
-
-
-def quick_trending():
-    """Get trending coins."""
-    try:
-        result = get_trending_coins.invoke({})
-        _, sanitized_result = validate_output(result)
-        return sanitized_result
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
-
-
-def quick_news():
-    """Get latest news."""
-    try:
-        result = get_general_crypto_news.invoke({})
-        _, sanitized_result = validate_output(result)
-        return sanitized_result
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
 
 def create_ui():
-    """Create clean Gradio UI."""
+    """Create beautiful structured Gradio UI."""
     
     with gr.Blocks(title="CryptoSense") as app:
         
         # Header
         gr.Markdown("""
-        # 🔮 CryptoSense
-        **Multi-Agent Crypto Intelligence System**
-        
-        *Powered by LangGraph • Groq Cloud • CoinGecko • Wikipedia*
+        <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; margin-bottom: 30px;">
+            <h1 style="color: white; margin: 0; font-size: 42px;">🔮 CryptoSense</h1>
+            <p style="color: #e8e8e8; margin: 10px 0 5px 0; font-size: 18px;">Multi-Agent Crypto Intelligence System</p>
+            <p style="color: #d0d0d0; margin: 0; font-size: 13px;">Powered by LangGraph • Groq Cloud • CoinGecko • Wikipedia</p>
+        </div>
         """)
         
-        gr.Markdown("---")
+        # Input Section
+        query_input = gr.Textbox(
+            label="",
+            placeholder="💬 Ask anything about cryptocurrency... (e.g., What's Bitcoin's price? Tell me about Ethereum)",
+            lines=3,
+            max_lines=5
+        )
         
-        # Main Query Section
-        with gr.Row():
-            with gr.Column(scale=4):
-                query_input = gr.Textbox(
-                    label="Ask about cryptocurrency",
-                    placeholder="e.g., Tell me about Bitcoin, What's Ethereum's price?",
-                    lines=2
-                )
-            with gr.Column(scale=1):
-                submit_btn = gr.Button("🚀 Analyze", variant="primary", size="lg")
+        # Main Analyze Button
+        submit_btn = gr.Button(
+            "🚀 Generate Intelligence Report",
+            variant="primary",
+            size="lg"
+        )
         
-        # Quick Actions
-        gr.Markdown("**Quick Actions:**")
+        # Quick Action Buttons
+        gr.Markdown("""
+        <div style="text-align: center; margin: 25px 0 15px 0;">
+            <span style="color: #666; font-size: 14px; font-weight: 500;">⚡ Quick Actions</span>
+        </div>
+        """)
+        
         with gr.Row():
             btn_btc = gr.Button("₿ Bitcoin", size="sm")
             btn_eth = gr.Button("Ξ Ethereum", size="sm")
@@ -136,84 +78,57 @@ def create_ui():
             btn_trend = gr.Button("🔥 Trending", size="sm")
             btn_news = gr.Button("📰 News", size="sm")
         
-        gr.Markdown("---")
+        # Output Section with dynamic sizing
+        gr.Markdown("""
+        <div style="margin: 30px 0 15px 0;">
+            <span style="color: #666; font-size: 15px; font-weight: 600;">📊 Intelligence Report</span>
+        </div>
+        """)
         
-        # Output Section
         report_output = gr.Textbox(
-            label="Intelligence Report",
-            lines=18,
-            interactive=False
+            label="",
+            placeholder="Your intelligent crypto analysis will appear here...",
+            lines=3,
+            max_lines=30,
+            interactive=False,
+            autoscroll=False
         )
-        
-        with gr.Accordion("📋 Execution Trace", open=False):
-            trace_output = gr.Textbox(
-                label="Agent Workflow",
-                lines=10,
-                interactive=False
-            )
-        
-        gr.Markdown("---")
-        
-        # Quick Tools Section
-        with gr.Accordion("⚡ Quick Tools", open=False):
-            with gr.Row():
-                with gr.Column():
-                    price_coin = gr.Dropdown(
-                        label="Price Check",
-                        choices=["bitcoin", "ethereum", "solana", "cardano", "ripple", "dogecoin"],
-                        value="bitcoin"
-                    )
-                    price_btn = gr.Button("Check Price")
-                    price_output = gr.Textbox(label="Result", lines=5, interactive=False)
-                
-                with gr.Column():
-                    trend_btn = gr.Button("Get Trending Coins")
-                    trend_output = gr.Textbox(label="Trending", lines=5, interactive=False)
-                
-                with gr.Column():
-                    news_btn = gr.Button("Get Latest News")
-                    news_output = gr.Textbox(label="News", lines=5, interactive=False)
         
         # Footer
         gr.Markdown("""
-        ---
-        <center>
-        <small>⚠️ For informational purposes only. Not financial advice.</small>
-        </center>
+        <div style="text-align: center; margin-top: 30px; padding: 15px; border-top: 1px solid #e0e0e0;">
+            <p style="color: #999; font-size: 12px; margin: 0;">⚠️ For informational purposes only. Not financial advice.</p>
+        </div>
         """)
         
         # Event Handlers
-        submit_btn.click(fn=process_query, inputs=[query_input], outputs=[report_output, trace_output])
-        query_input.submit(fn=process_query, inputs=[query_input], outputs=[report_output, trace_output])
+        submit_btn.click(fn=process_query, inputs=[query_input], outputs=[report_output])
+        query_input.submit(fn=process_query, inputs=[query_input], outputs=[report_output])
         
         btn_btc.click(
             fn=lambda: "Tell me about Bitcoin",
             outputs=[query_input]
-        ).then(fn=process_query, inputs=[query_input], outputs=[report_output, trace_output])
+        ).then(fn=process_query, inputs=[query_input], outputs=[report_output])
         
         btn_eth.click(
             fn=lambda: "Tell me about Ethereum",
             outputs=[query_input]
-        ).then(fn=process_query, inputs=[query_input], outputs=[report_output, trace_output])
+        ).then(fn=process_query, inputs=[query_input], outputs=[report_output])
         
         btn_sol.click(
             fn=lambda: "Tell me about Solana",
             outputs=[query_input]
-        ).then(fn=process_query, inputs=[query_input], outputs=[report_output, trace_output])
+        ).then(fn=process_query, inputs=[query_input], outputs=[report_output])
         
         btn_trend.click(
             fn=lambda: "What's trending in crypto?",
             outputs=[query_input]
-        ).then(fn=process_query, inputs=[query_input], outputs=[report_output, trace_output])
+        ).then(fn=process_query, inputs=[query_input], outputs=[report_output])
         
         btn_news.click(
             fn=lambda: "Latest crypto news",
             outputs=[query_input]
-        ).then(fn=process_query, inputs=[query_input], outputs=[report_output, trace_output])
-        
-        price_btn.click(fn=quick_price, inputs=[price_coin], outputs=[price_output])
-        trend_btn.click(fn=quick_trending, outputs=[trend_output])
-        news_btn.click(fn=quick_news, outputs=[news_output])
+        ).then(fn=process_query, inputs=[query_input], outputs=[report_output])
     
     return app
 
