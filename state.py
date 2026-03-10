@@ -5,7 +5,7 @@ Defines the shared state for the multi-agent LangGraph workflow.
 Supports parallel agent execution with proper reducers.
 """
 
-from typing import TypedDict, Annotated, List, Optional
+from typing import TypedDict, Annotated, Any, Dict, List, Optional
 from operator import add
 
 
@@ -31,6 +31,11 @@ def merge_error(a: Optional[str], b: Optional[str]) -> Optional[str]:
     return a or b
 
 
+def keep_last_any(a: Any, b: Any) -> Any:
+    """Reducer that keeps the last non-None value."""
+    return b if b is not None else a
+
+
 class AgentState(TypedDict):
     """
     Shared state for all agents in the CryptoSense system.
@@ -49,6 +54,7 @@ class AgentState(TypedDict):
         step_count: Counter to prevent infinite loops
         error: Any error messages
         tasks: Which agents to invoke
+        trace_ctx: Monitoring TraceContext instance (passed through graph)
     """
     # Input - set by orchestrator, read by all
     query: Annotated[str, keep_last]
@@ -69,19 +75,23 @@ class AgentState(TypedDict):
     # Task routing
     tasks: Annotated[List[str], keep_first_list]
 
+    # Monitoring – TraceContext instance threaded through the graph
+    trace_ctx: Annotated[Optional[Any], keep_last_any]
 
-def create_initial_state(query: str) -> AgentState:
+
+def create_initial_state(query: str, trace_ctx: Optional[Any] = None) -> dict:
     """Create initial state from user query."""
-    return AgentState(
-        query=query,
-        coin_id="",
-        market_data="",
-        news_data="",
-        knowledge_data="",
-        analysis="",
-        final_report="",
-        messages=[],
-        step_count=0,
-        error=None,
-        tasks=[]
-    )
+    return {
+        "query": query,
+        "coin_id": "",
+        "market_data": "",
+        "news_data": "",
+        "knowledge_data": "",
+        "analysis": "",
+        "final_report": "",
+        "messages": [],
+        "step_count": 0,
+        "error": None,
+        "tasks": [],
+        "trace_ctx": trace_ctx,
+    }

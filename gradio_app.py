@@ -1,134 +1,267 @@
 """
-CryptoSense Gradio UI - Clean Version
-======================================
-Minimalist web interface for the multi-agent system.
+CryptoSense Gradio UI - Production Version
+=============================================
+Web interface with intelligence reports + monitoring & evaluation dashboard.
 """
 
+import json
 import gradio as gr
 from workflow import run_query_with_trace
 from validation import validate_input, validate_output, rate_limiter
+from monitoring import metrics_store, is_monitoring_enabled
+from evaluation import evaluation_store
 
 
 def process_query(query: str):
-    """Process user query with validation."""
+    """Process user query with validation, monitoring, and evaluation."""
     
     # Rate limiting check
     if not rate_limiter.is_allowed():
         wait_time = rate_limiter.get_wait_time()
-        return f"⏳ Rate limit reached. Please wait {wait_time} seconds."
+        return f"⏳ Rate limit reached. Please wait {wait_time} seconds.", ""
     
     # Input validation
     is_valid, sanitized_query, error = validate_input(query)
     if not is_valid:
-        return f"❌ {error}"
+        return f"❌ {error}", ""
     
     try:
-        # Run multi-agent workflow
+        # Run multi-agent workflow (now includes monitoring + evaluation)
         report, trace = run_query_with_trace(sanitized_query)
         
         # Output validation
         _, sanitized_report = validate_output(report)
-        
-        return sanitized_report
+
+        # Build evaluation summary
+        eval_data = trace.get("evaluation", {})
+        monitoring_data = trace.get("monitoring", {})
+        eval_lines = []
+        eval_lines.append("═" * 50)
+        eval_lines.append("   METRICS & EVALUATION")
+        eval_lines.append("═" * 50)
+
+        # Monitoring metrics
+        eval_lines.append(f"\n⏱  Latency:          {monitoring_data.get('total_latency_ms', 0):.0f} ms")
+        eval_lines.append(f"🔢 Steps:            {monitoring_data.get('steps', 0)}")
+        eval_lines.append(f"🧠 LLM Calls:        {monitoring_data.get('llm_calls', 0)}")
+        eval_lines.append(f"🔧 Tool Calls:       {monitoring_data.get('tool_calls', 0)}")
+        eval_lines.append(f"❌ Tool Errors:       {monitoring_data.get('tool_errors', 0)}")
+        eval_lines.append(f"📊 Tokens:           {monitoring_data.get('total_tokens', 0)} (prompt: {monitoring_data.get('prompt_tokens', 0)}, completion: {monitoring_data.get('completion_tokens', 0)})")
+        eval_lines.append(f"🤖 Agents:           {', '.join(monitoring_data.get('agents_invoked', []))}")
+        eval_lines.append(f"🔧 Tools Used:       {', '.join(monitoring_data.get('tools_invoked', []))}")
+
+        # Evaluation scores
+        eval_lines.append(f"\n{'─' * 50}")
+        overall = eval_data.get("overall_score", 0)
+        passed = eval_data.get("passed", False)
+        eval_lines.append(f"Overall Score:       {overall:.2%}  {'✅ PASSED' if passed else '❌ FAILED'}")
+        eval_lines.append(f"{'─' * 50}")
+        eval_lines.append(f"{'Metric':<25} {'Score':<8} {'Value':<15} {'Status'}")
+        eval_lines.append(f"{'─' * 50}")
+        for m in eval_data.get("metrics", []):
+            status = "✅" if m.get("passed") else "❌"
+            eval_lines.append(f"{m['name']:<25} {m['score']:<8.2f} {str(m['value']):<15} {status}")
+        eval_lines.append("═" * 50)
+        if eval_data.get("summary"):
+            eval_lines.append(eval_data["summary"])
+
+        eval_text = "\n".join(eval_lines)
+        return sanitized_report, eval_text
         
     except Exception as e:
-        return f"❌ Error: {str(e)}"
+        return f"❌ Error: {str(e)}", ""
+
+
+def get_dashboard_data():
+    """Fetch aggregate monitoring and evaluation data for the dashboard."""
+    mon_agg = metrics_store.get_aggregate()
+    eval_agg = evaluation_store.get_aggregate()
+    metric_breakdown = evaluation_store.get_metric_breakdown()
+
+    lines = []
+    lines.append("═" * 55)
+    lines.append("   MONITORING & EVALUATION DASHBOARD")
+    lines.append("═" * 55)
+
+    lines.append(f"\n📊 Monitoring Aggregates ({mon_agg['total_queries']} queries)")
+    lines.append(f"{'─' * 55}")
+    lines.append(f"  Avg Latency:      {mon_agg['avg_latency_ms']:.0f} ms")
+    lines.append(f"  Avg Tokens:       {mon_agg['avg_tokens']:.0f}")
+    lines.append(f"  Avg Steps:        {mon_agg['avg_steps']:.1f}")
+    lines.append(f"  Total Errors:     {mon_agg['total_errors']}")
+    lines.append(f"  Success Rate:     {mon_agg['success_rate']:.1f}%")
+
+    lines.append(f"\n🎯 Evaluation Aggregates ({eval_agg['total_evals']} evaluations)")
+    lines.append(f"{'─' * 55}")
+    lines.append(f"  Avg Score:        {eval_agg['avg_score']:.2%}")
+    lines.append(f"  Pass Rate:        {eval_agg['pass_rate']:.1f}%")
+
+    if metric_breakdown:
+        lines.append(f"\n📈 Per-Metric Breakdown")
+        lines.append(f"{'─' * 55}")
+        lines.append(f"{'Metric':<25} {'Avg':<8} {'Min':<8} {'Max':<8} {'N'}")
+        lines.append(f"{'─' * 55}")
+        for name, data in metric_breakdown.items():
+            lines.append(f"{name:<25} {data['avg_score']:<8.2f} {data['min_score']:<8.2f} {data['max_score']:<8.2f} {data['count']}")
+
+    # Recent queries
+    recent = metrics_store.entries[-10:]
+    if recent:
+        lines.append(f"\n📝 Recent Queries (last {len(recent)})")
+        lines.append(f"{'─' * 55}")
+        for entry in reversed(recent):
+            ts = entry.get("timestamp", "")
+            q = entry.get("query", "")[:40]
+            lat = entry.get("total_latency_ms", 0)
+            steps = entry.get("steps", 0)
+            errs = len(entry.get("errors", []))
+            lines.append(f"  [{ts}] {q:<40} {lat:.0f}ms  {steps}steps  {errs}err")
+
+    langfuse_status = "✅ Connected" if is_monitoring_enabled() else "⚠️ Disabled (set LANGFUSE keys)"
+    lines.append(f"\n🔗 Langfuse: {langfuse_status}")
+    lines.append("═" * 55)
+
+    return "\n".join(lines)
 
 
 def create_ui():
-    """Create beautiful structured Gradio UI."""
+    """Create beautiful structured Gradio UI with monitoring dashboard."""
     
     with gr.Blocks(title="CryptoSense") as app:
         
-        # Header
-        gr.Markdown("""
-        <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; margin-bottom: 30px;">
-            <h1 style="color: white; margin: 0; font-size: 42px;">🔮 CryptoSense</h1>
-            <p style="color: #e8e8e8; margin: 10px 0 5px 0; font-size: 18px;">Multi-Agent Crypto Intelligence System</p>
-            <p style="color: #d0d0d0; margin: 0; font-size: 13px;">Powered by LangGraph • Groq Cloud • CoinGecko • Wikipedia</p>
-        </div>
-        """)
-        
-        # Input Section
-        query_input = gr.Textbox(
-            label="",
-            placeholder="💬 Ask anything about cryptocurrency... (e.g., What's Bitcoin's price? Tell me about Ethereum)",
-            lines=3,
-            max_lines=5
-        )
-        
-        # Main Analyze Button
-        submit_btn = gr.Button(
-            "🚀 Generate Intelligence Report",
-            variant="primary",
-            size="lg"
-        )
-        
-        # Quick Action Buttons
-        gr.Markdown("""
-        <div style="text-align: center; margin: 25px 0 15px 0;">
-            <span style="color: #666; font-size: 14px; font-weight: 500;">⚡ Quick Actions</span>
-        </div>
-        """)
-        
-        with gr.Row():
-            btn_btc = gr.Button("₿ Bitcoin", size="sm")
-            btn_eth = gr.Button("Ξ Ethereum", size="sm")
-            btn_sol = gr.Button("◎ Solana", size="sm")
-            btn_trend = gr.Button("🔥 Trending", size="sm")
-            btn_news = gr.Button("📰 News", size="sm")
-        
-        # Output Section with dynamic sizing
-        gr.Markdown("""
-        <div style="margin: 30px 0 15px 0;">
-            <span style="color: #666; font-size: 15px; font-weight: 600;">📊 Intelligence Report</span>
-        </div>
-        """)
-        
-        report_output = gr.Textbox(
-            label="",
-            placeholder="Your intelligent crypto analysis will appear here...",
-            lines=3,
-            max_lines=30,
-            interactive=False,
-            autoscroll=False
-        )
-        
-        # Footer
-        gr.Markdown("""
-        <div style="text-align: center; margin-top: 30px; padding: 15px; border-top: 1px solid #e0e0e0;">
-            <p style="color: #999; font-size: 12px; margin: 0;">⚠️ For informational purposes only. Not financial advice.</p>
-        </div>
-        """)
-        
-        # Event Handlers
-        submit_btn.click(fn=process_query, inputs=[query_input], outputs=[report_output])
-        query_input.submit(fn=process_query, inputs=[query_input], outputs=[report_output])
-        
-        btn_btc.click(
-            fn=lambda: "Tell me about Bitcoin",
-            outputs=[query_input]
-        ).then(fn=process_query, inputs=[query_input], outputs=[report_output])
-        
-        btn_eth.click(
-            fn=lambda: "Tell me about Ethereum",
-            outputs=[query_input]
-        ).then(fn=process_query, inputs=[query_input], outputs=[report_output])
-        
-        btn_sol.click(
-            fn=lambda: "Tell me about Solana",
-            outputs=[query_input]
-        ).then(fn=process_query, inputs=[query_input], outputs=[report_output])
-        
-        btn_trend.click(
-            fn=lambda: "What's trending in crypto?",
-            outputs=[query_input]
-        ).then(fn=process_query, inputs=[query_input], outputs=[report_output])
-        
-        btn_news.click(
-            fn=lambda: "Latest crypto news",
-            outputs=[query_input]
-        ).then(fn=process_query, inputs=[query_input], outputs=[report_output])
+        with gr.Tabs():
+            # ============================
+            # Tab 1: Intelligence Report
+            # ============================
+            with gr.Tab("🔮 Intelligence"):
+                # Header
+                gr.Markdown("""
+                <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; margin-bottom: 30px;">
+                    <h1 style="color: white; margin: 0; font-size: 42px;">🔮 CryptoSense</h1>
+                    <p style="color: #e8e8e8; margin: 10px 0 5px 0; font-size: 18px;">Multi-Agent Crypto Intelligence System</p>
+                    <p style="color: #d0d0d0; margin: 0; font-size: 13px;">Powered by LangGraph • Groq Cloud • CoinGecko • Wikipedia • Langfuse • DeepEval</p>
+                </div>
+                """)
+                
+                # Input Section
+                query_input = gr.Textbox(
+                    label="",
+                    placeholder="💬 Ask anything about cryptocurrency... (e.g., What's Bitcoin's price? Tell me about Ethereum)",
+                    lines=3,
+                    max_lines=5
+                )
+                
+                # Main Analyze Button
+                submit_btn = gr.Button(
+                    "🚀 Generate Intelligence Report",
+                    variant="primary",
+                    size="lg"
+                )
+                
+                # Quick Action Buttons
+                gr.Markdown("""
+                <div style="text-align: center; margin: 25px 0 15px 0;">
+                    <span style="color: #666; font-size: 14px; font-weight: 500;">⚡ Quick Actions</span>
+                </div>
+                """)
+                
+                with gr.Row():
+                    btn_btc = gr.Button("₿ Bitcoin", size="sm")
+                    btn_eth = gr.Button("Ξ Ethereum", size="sm")
+                    btn_sol = gr.Button("◎ Solana", size="sm")
+                    btn_trend = gr.Button("🔥 Trending", size="sm")
+                    btn_news = gr.Button("📰 News", size="sm")
+                
+                # Output Section
+                gr.Markdown("""
+                <div style="margin: 30px 0 15px 0;">
+                    <span style="color: #666; font-size: 15px; font-weight: 600;">📊 Intelligence Report</span>
+                </div>
+                """)
+                
+                report_output = gr.Textbox(
+                    label="",
+                    placeholder="Your intelligent crypto analysis will appear here...",
+                    lines=3,
+                    max_lines=30,
+                    interactive=False,
+                    autoscroll=False
+                )
+
+                # Evaluation output (per-query)
+                gr.Markdown("""
+                <div style="margin: 20px 0 10px 0;">
+                    <span style="color: #666; font-size: 15px; font-weight: 600;">🎯 Evaluation & Metrics</span>
+                </div>
+                """)
+
+                eval_output = gr.Textbox(
+                    label="",
+                    placeholder="Per-query evaluation metrics will appear here after each query...",
+                    lines=3,
+                    max_lines=25,
+                    interactive=False,
+                    autoscroll=False
+                )
+                
+                # Footer
+                gr.Markdown("""
+                <div style="text-align: center; margin-top: 30px; padding: 15px; border-top: 1px solid #e0e0e0;">
+                    <p style="color: #999; font-size: 12px; margin: 0;">⚠️ For informational purposes only. Not financial advice.</p>
+                </div>
+                """)
+                
+                # Event Handlers — now output both report and eval
+                submit_btn.click(fn=process_query, inputs=[query_input], outputs=[report_output, eval_output])
+                query_input.submit(fn=process_query, inputs=[query_input], outputs=[report_output, eval_output])
+                
+                btn_btc.click(
+                    fn=lambda: "Tell me about Bitcoin",
+                    outputs=[query_input]
+                ).then(fn=process_query, inputs=[query_input], outputs=[report_output, eval_output])
+                
+                btn_eth.click(
+                    fn=lambda: "Tell me about Ethereum",
+                    outputs=[query_input]
+                ).then(fn=process_query, inputs=[query_input], outputs=[report_output, eval_output])
+                
+                btn_sol.click(
+                    fn=lambda: "Tell me about Solana",
+                    outputs=[query_input]
+                ).then(fn=process_query, inputs=[query_input], outputs=[report_output, eval_output])
+                
+                btn_trend.click(
+                    fn=lambda: "What's trending in crypto?",
+                    outputs=[query_input]
+                ).then(fn=process_query, inputs=[query_input], outputs=[report_output, eval_output])
+                
+                btn_news.click(
+                    fn=lambda: "Latest crypto news",
+                    outputs=[query_input]
+                ).then(fn=process_query, inputs=[query_input], outputs=[report_output, eval_output])
+
+            # ============================
+            # Tab 2: Monitoring Dashboard
+            # ============================
+            with gr.Tab("📈 Monitoring & Evaluation"):
+                gr.Markdown("""
+                <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border-radius: 12px; margin-bottom: 20px;">
+                    <h2 style="color: white; margin: 0;">📈 Production Monitoring Dashboard</h2>
+                    <p style="color: #e8e8e8; margin: 5px 0 0 0; font-size: 14px;">Langfuse traces • DeepEval metrics • Real-time analytics</p>
+                </div>
+                """)
+
+                refresh_btn = gr.Button("🔄 Refresh Dashboard", variant="secondary")
+
+                dashboard_output = gr.Textbox(
+                    label="",
+                    placeholder="Run some queries first, then refresh to see aggregate metrics...",
+                    lines=5,
+                    max_lines=40,
+                    interactive=False,
+                )
+
+                refresh_btn.click(fn=get_dashboard_data, outputs=[dashboard_output])
     
     return app
 

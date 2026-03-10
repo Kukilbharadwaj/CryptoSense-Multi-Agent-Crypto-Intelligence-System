@@ -19,6 +19,7 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from state import AgentState
+from monitoring import TraceContext
 from tools import (
     get_market_tools,
     get_news_tools,
@@ -56,6 +57,11 @@ def get_llm():
 # Orchestrator Agent
 # -----------------------------
 
+def _get_trace(state: AgentState) -> "TraceContext | None":
+    """Safely extract TraceContext from state."""
+    return state.get("trace_ctx")
+
+
 def orchestrator_agent(state: AgentState) -> AgentState:
     """
     Master controller agent that:
@@ -69,6 +75,8 @@ def orchestrator_agent(state: AgentState) -> AgentState:
         return state
     
     state["step_count"] = state["step_count"] + 1
+    
+    trace = _get_trace(state)
     
     llm = get_llm()
     
@@ -106,7 +114,19 @@ Common coin mappings:
         HumanMessage(content=f"User query: {state['query']}")
     ]
     
-    response = llm.invoke(messages)
+    # --- Monitored LLM call ---
+    if trace:
+        with trace.agent_span("orchestrator", {"query": state["query"]}):
+            with trace.llm_generation("orchestrator-llm", input_messages=[m.content for m in messages]):
+                response = llm.invoke(messages)
+                usage = getattr(response, "response_metadata", {}).get("token_usage", {})
+                trace.record_token_usage(
+                    prompt_tokens=usage.get("prompt_tokens", 0),
+                    completion_tokens=usage.get("completion_tokens", 0),
+                )
+    else:
+        response = llm.invoke(messages)
+
     response_text = response.content
     
     # Parse response - handle both single-line and multi-line formats
@@ -179,28 +199,40 @@ def market_agent(state: AgentState) -> AgentState:
         return state
     
     state["step_count"] = state["step_count"] + 1
+    trace = _get_trace(state)
     
     coin_id = state["coin_id"]
     results = []
     
     try:
         if coin_id == "general":
-            # Get trending coins for general queries
-            trending_result = get_trending_coins.invoke({})
+            if trace:
+                with trace.tool_span("get_trending_coins"):
+                    trending_result = get_trending_coins.invoke({})
+            else:
+                trending_result = get_trending_coins.invoke({})
             results.append(trending_result)
         else:
-            # Get specific coin data
-            price_result = get_coin_price.invoke({"coin_id": coin_id})
+            if trace:
+                with trace.tool_span("get_coin_price", {"coin_id": coin_id}):
+                    price_result = get_coin_price.invoke({"coin_id": coin_id})
+            else:
+                price_result = get_coin_price.invoke({"coin_id": coin_id})
             results.append(price_result)
             
-            # Get detailed info
-            details_result = get_coin_details.invoke({"coin_id": coin_id})
+            if trace:
+                with trace.tool_span("get_coin_details", {"coin_id": coin_id}):
+                    details_result = get_coin_details.invoke({"coin_id": coin_id})
+            else:
+                details_result = get_coin_details.invoke({"coin_id": coin_id})
             results.append(details_result)
         
         state["market_data"] = "\n".join(results)
         state["messages"] = [f"Market Agent: Fetched data for {coin_id}"]
         
     except Exception as e:
+        if trace:
+            trace.metrics["tool_errors"] += 1
         state["market_data"] = f"Market Agent Error: {str(e)}"
         state["messages"] = [f"Market Agent: Error - {str(e)}"]
     
@@ -220,19 +252,30 @@ def news_agent(state: AgentState) -> AgentState:
         return state
     
     state["step_count"] = state["step_count"] + 1
+    trace = _get_trace(state)
     
     coin_id = state["coin_id"]
     
     try:
         if coin_id == "general":
-            news_result = get_general_crypto_news.invoke({})
+            if trace:
+                with trace.tool_span("get_general_crypto_news"):
+                    news_result = get_general_crypto_news.invoke({})
+            else:
+                news_result = get_general_crypto_news.invoke({})
         else:
-            news_result = get_crypto_news.invoke({"coin_name": coin_id})
+            if trace:
+                with trace.tool_span("get_crypto_news", {"coin_name": coin_id}):
+                    news_result = get_crypto_news.invoke({"coin_name": coin_id})
+            else:
+                news_result = get_crypto_news.invoke({"coin_name": coin_id})
         
         state["news_data"] = news_result
         state["messages"] = [f"News Agent: Fetched news for {coin_id}"]
         
     except Exception as e:
+        if trace:
+            trace.metrics["tool_errors"] += 1
         state["news_data"] = f"News Agent Error: {str(e)}"
         state["messages"] = [f"News Agent: Error - {str(e)}"]
     
@@ -252,6 +295,7 @@ def knowledge_agent(state: AgentState) -> AgentState:
         return state
     
     state["step_count"] = state["step_count"] + 1
+    trace = _get_trace(state)
     
     coin_id = state["coin_id"]
     
@@ -260,16 +304,24 @@ def knowledge_agent(state: AgentState) -> AgentState:
         return state
     
     try:
-        # Get Wikipedia summary
-        wiki_result = get_wiki_summary.invoke({"topic": coin_id})
+        if trace:
+            with trace.tool_span("get_wiki_summary", {"topic": coin_id}):
+                wiki_result = get_wiki_summary.invoke({"topic": coin_id})
+        else:
+            wiki_result = get_wiki_summary.invoke({"topic": coin_id})
         
-        # Get history
-        history_result = get_crypto_history.invoke({"coin_name": coin_id})
+        if trace:
+            with trace.tool_span("get_crypto_history", {"coin_name": coin_id}):
+                history_result = get_crypto_history.invoke({"coin_name": coin_id})
+        else:
+            history_result = get_crypto_history.invoke({"coin_name": coin_id})
         
         state["knowledge_data"] = f"{wiki_result}\n\n{history_result}"
         state["messages"] = [f"Knowledge Agent: Fetched info for {coin_id}"]
         
     except Exception as e:
+        if trace:
+            trace.metrics["tool_errors"] += 1
         state["knowledge_data"] = f"Knowledge Agent Error: {str(e)}"
         state["messages"] = [f"Knowledge Agent: Error - {str(e)}"]
     
@@ -351,8 +403,20 @@ COIN: {state['coin_id']}
         HumanMessage(content=context)
     ]
     
+    trace = _get_trace(state)
     try:
-        response = llm.invoke(messages)
+        if trace:
+            with trace.agent_span("analyst", {"coin_id": state["coin_id"]}):
+                with trace.llm_generation("analyst-llm", input_messages=[m.content for m in messages]):
+                    response = llm.invoke(messages)
+                    usage = getattr(response, "response_metadata", {}).get("token_usage", {})
+                    trace.record_token_usage(
+                        prompt_tokens=usage.get("prompt_tokens", 0),
+                        completion_tokens=usage.get("completion_tokens", 0),
+                    )
+        else:
+            response = llm.invoke(messages)
+
         state["final_report"] = response.content
         state["messages"] = ["Analyst Agent: Generated intelligence report"]
         

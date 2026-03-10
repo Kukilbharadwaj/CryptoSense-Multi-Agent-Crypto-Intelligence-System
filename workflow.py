@@ -66,6 +66,8 @@ from agents import (
     analyst_agent,
     MAX_STEPS
 )
+from monitoring import TraceContext, metrics_store, flush
+from evaluation import evaluator, evaluation_store
 
 
 def create_workflow():
@@ -145,6 +147,9 @@ def run_query(query: str) -> str:
     Returns:
         Final intelligence report
     """
+    # Create monitoring trace
+    trace = TraceContext(query=query)
+
     # Create the workflow
     app = create_workflow()
     
@@ -160,25 +165,46 @@ def run_query(query: str) -> str:
         "messages": [],
         "step_count": 0,
         "error": None,
-        "tasks": []
+        "tasks": [],
+        "trace_ctx": trace,
     }
     
     # Run the workflow
     try:
         result = app.invoke(initial_state)
         
-        if result.get("error"):
-            return f"Error: {result['error']}"
+        report = result.get("final_report", "No report generated.")
+        error = result.get("error")
+
+        # Finalize monitoring
+        trace.finalize(output=report, error=error)
+
+        # Run evaluation
+        metrics = trace.get_metrics_summary()
+        eval_report = evaluator.evaluate(
+            query=query,
+            final_report=report,
+            metrics=metrics,
+            coin_id=result.get("coin_id", ""),
+            tasks=result.get("tasks"),
+        )
+        evaluation_store.record(eval_report)
+        metrics_store.record(query, metrics, report_preview=report[:200])
+
+        if error:
+            return f"Error: {error}"
         
-        return result.get("final_report", "No report generated.")
+        return report
         
     except Exception as e:
+        trace.finalize(error=str(e))
         return f"Workflow Error: {str(e)}"
 
 
 def run_query_with_trace(query: str) -> tuple:
     """
-    Run a query with full trace information for debugging.
+    Run a query with full trace information for debugging,
+    plus Langfuse monitoring and DeepEval evaluation.
     
     Args:
         query: User's question about cryptocurrency
@@ -186,6 +212,9 @@ def run_query_with_trace(query: str) -> tuple:
     Returns:
         Tuple of (final_report, trace_info)
     """
+    # Create monitoring trace
+    trace = TraceContext(query=query)
+
     app = create_workflow()
     
     initial_state = {
@@ -199,23 +228,47 @@ def run_query_with_trace(query: str) -> tuple:
         "messages": [],
         "step_count": 0,
         "error": None,
-        "tasks": []
+        "tasks": [],
+        "trace_ctx": trace,
     }
     
     try:
         result = app.invoke(initial_state)
         
+        report = result.get("final_report", "No report generated.")
+        error = result.get("error")
+
+        # Finalize monitoring
+        trace.finalize(output=report, error=error)
+
+        # Collect monitoring metrics
+        monitoring_metrics = trace.get_metrics_summary()
+
+        # Run evaluation
+        eval_report = evaluator.evaluate(
+            query=query,
+            final_report=report,
+            metrics=monitoring_metrics,
+            coin_id=result.get("coin_id", ""),
+            tasks=result.get("tasks"),
+        )
+        evaluation_store.record(eval_report)
+        metrics_store.record(query, monitoring_metrics, report_preview=report[:200])
+
         trace_info = {
             "coin_identified": result.get("coin_id"),
             "tasks_executed": result.get("tasks"),
             "step_count": result.get("step_count"),
             "messages": result.get("messages", []),
-            "error": result.get("error")
+            "error": error,
+            "monitoring": monitoring_metrics,
+            "evaluation": eval_report.to_dict(),
         }
         
-        return result.get("final_report", "No report generated."), trace_info
+        return report, trace_info
         
     except Exception as e:
+        trace.finalize(error=str(e))
         return f"Workflow Error: {str(e)}", {"error": str(e)}
 
 
