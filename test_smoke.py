@@ -1,32 +1,31 @@
-"""Quick smoke test for monitoring + evaluation integration."""
-from workflow import run_query_with_trace
+"""Quick smoke test for MCP Client → MCP Server flow."""
+from mcp_client import run_query, check_server
 
-report, trace = run_query_with_trace("What is Bitcoin price?")
+if not check_server():
+    print("❌ MCP Server is NOT running! Start it first:")
+    print("   python mcp_server.py --transport sse")
+    exit(1)
 
-print("=== REPORT (first 200 chars) ===")
-print(report[:200])
+result = run_query("What is Bitcoin price?")
+
+report = result["report"]
+metrics = result["metrics"]
+
+print("=== REPORT (first 300 chars) ===")
+print(report[:300])
 print()
 
-print("=== TRACE KEYS ===")
-print(list(trace.keys()))
-print()
+print("=== METRICS ===")
+print(f"Latency: {metrics.get('total_latency_ms', 0):.0f}ms")
+print(f"LLM calls: {metrics.get('llm_calls', 0)}")
+print(f"Tool calls: {metrics.get('tool_calls', 0)}")
+print(f"Tool errors: {metrics.get('tool_errors', 0)}")
+print(f"Tokens: {metrics.get('total_tokens', 0)}")
+print(f"Tools used: {metrics.get('tools_invoked', [])}")
 
-print("=== MONITORING ===")
-m = trace.get("monitoring", {})
-print(f"Latency: {m.get('total_latency_ms', 0):.0f}ms")
-print(f"Steps: {m.get('steps', 0)}")
-print(f"Tool calls: {m.get('tool_calls', 0)}")
-print(f"LLM calls: {m.get('llm_calls', 0)}")
-print(f"Tokens: {m.get('total_tokens', 0)}")
-print(f"Agents: {m.get('agents_invoked', [])}")
-print(f"Tools: {m.get('tools_invoked', [])}")
-print(f"Errors: {m.get('errors', [])}")
-print()
+print("\n=== TOOL DETAILS ===")
+for td in metrics.get("tool_details", []):
+    status = "OK" if not td.get("error") else f"ERR: {td['error']}"
+    print(f"  {td['tool']}({td.get('args', {})}) → {td['latency_ms']}ms [{status}]")
 
-print("=== EVALUATION ===")
-ev = trace.get("evaluation", {})
-print(f"Overall: {ev.get('overall_score', 0):.2%}")
-print(f"Passed: {ev.get('passed')}")
-for metric in ev.get("metrics", []):
-    status = "PASS" if metric.get("passed") else "FAIL"
-    print(f"  {metric['name']:<25} {metric['score']:.2f}  {metric['value']}  [{status}]")
+print("\nSmoke test complete!")
