@@ -2,96 +2,193 @@
 
 **Multi-Agent Crypto Intelligence System**
 
-AI-powered cryptocurrency analysis using LangGraph, Groq Cloud, and real-time data sources.
+AI-powered cryptocurrency analysis using **LangGraph agents, MCP architecture, Groq Cloud LLMs, and real-time crypto data sources** with **observability and evaluation**.
 
 ---
 
-## 🚀 Quick Start
+# 🚀 Quick Start
 
-### 1. Install Dependencies
+## 1. Install Dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Set API Key
+## 2. Set API Keys
+
 Create a `.env` file:
+
 ```env
 GROQ_API_KEY=your_groq_api_key_here
-```
 
-### 3. Run
-```bash
-# CLI (verbose logging)
-python main.py
-
-# Web UI
-python gradio_app.py
+# Langfuse Monitoring
+LANGFUSE_PUBLIC_KEY=your_public_key
+LANGFUSE_SECRET_KEY=your_secret_key
+LANGFUSE_HOST=https://cloud.langfuse.com
 ```
 
 ---
 
-## 🏗️ Architecture
+## 3. Run the System
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        USER INTERFACE                           │
-│                    (CLI / Gradio Web UI)                        │
-└─────────────────────┬───────────────────────────────────────────┘
-                      │ User Query
-                      ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    VALIDATION LAYER                             │
-│  • Input sanitization (XSS, SQL injection protection)           │
-│  • Rate limiting (20 req/min)                                   │
-│  • Output sanitization                                          │
-└─────────────────────┬───────────────────────────────────────────┘
-                      ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   ORCHESTRATOR AGENT                            │
-│                  (Master Controller)                            │
-│                                                                 │
-│  • Parses user intent                                           │
-│  • Extracts cryptocurrency identifier                           │
-│  • Routes tasks to sub-agents                                   │
-└────────┬──────────────────┬──────────────────┬─────────────────┘
-         │                  │                  │
-         ▼                  ▼                  ▼
-┌────────────────┐ ┌────────────────┐ ┌────────────────────────┐
-│  MARKET AGENT  │ │  NEWS AGENT    │ │  KNOWLEDGE AGENT       │
-│                │ │                │ │                        │
-│ CoinGecko API  │ │  CoinDesk RSS  │ │  Wikipedia API         │
-│                │ │                │ │                        │
-│ • Live prices  │ │ • Latest news  │ │ • Coin origin & history│
-│ • Market cap   │ │ • Headlines    │ │ • Founder info         │
-│ • Volume       │ │ • Summaries    │ │ • Use case & tech      │
-│ • % changes    │ │                │ │                        │
-│ • Trending     │ │                │ │                        │
-└────────┬───────┘ └───────┬────────┘ └──────────┬─────────────┘
-         │                 │                      │
-         └─────────────────┴──────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    ANALYST AGENT                                │
-│               (Synthesis & Reasoning Layer)                     │
-│                                                                 │
-│  • Cross-references market data + news sentiment + background   │
-│  • Detects signal conflicts (e.g. price up, news negative)      │
-│  • Generates confidence scores                                  │
-│  • Produces structured intelligence report                      │
-└─────────────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      OUTPUT LAYER                               │
-│                                                                 │
-│  • Market Snapshot       • Sentiment Score (Bullish/Bearish)    │
-│  • News Summary          • Background Brief                     │
-│  • Risk Signals          • Final Intelligence Report            │
-└─────────────────────────────────────────────────────────────────┘
+### Start MCP Server
+
+```bash
+python mcp_server.py --transport sse
 ```
 
-**Flow**: Parallel agent execution with LangGraph state management.
+### Start Web Interface
+
+```bash
+python gradio_app.py
+```
+
+System Flow:
+
+```
+Gradio UI
+   ↓
+MCP Client
+   ↓
+SSE Transport
+   ↓
+MCP Server
+   ↓
+Agent Tools
+   ↓
+External APIs
+```
+
+---
+
+# 🏗️ System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     USER INTERFACE                          │
+│                (CLI / Gradio Web UI)                        │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                        MCP CLIENT                           │
+│     Sends structured requests to MCP server                │
+└───────────────────────┬─────────────────────────────────────┘
+                        │ SSE Transport
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                        MCP SERVER                           │
+│  Exposes tools via Model Context Protocol                  │
+│  Handles tool execution                                    │
+└───────────────────────┬─────────────────────────────────────┘
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  ORCHESTRATOR AGENT                         │
+│                   (LangGraph Controller)                    │
+│                                                             │
+│ • Parses user intent                                        │
+│ • Extracts cryptocurrency identifier                        │
+│ • Routes tasks to sub-agents                                │
+└─────────────┬───────────────┬───────────────┬────────────────┘
+              │               │               │
+              ▼               ▼               ▼
+┌────────────────┐ ┌────────────────┐ ┌──────────────────────┐
+│  MARKET AGENT  │ │   NEWS AGENT   │ │   KNOWLEDGE AGENT    │
+│                │ │                │ │                      │
+│ CoinGecko API  │ │ CoinDesk RSS   │ │ Wikipedia API        │
+│                │ │                │ │                      │
+│ • Live prices  │ │ • Headlines    │ │ • Coin history       │
+│ • Market cap   │ │ • Summaries    │ │ • Founder info       │
+│ • Volume       │ │ • Sentiment    │ │ • Technology details │
+│ • Trending     │ │                │ │                      │
+└───────┬────────┘ └───────┬────────┘ └──────────┬───────────┘
+        │                  │                     │
+        └──────────────────┴─────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      ANALYST AGENT                          │
+│                 (Reasoning & Synthesis)                     │
+│                                                             │
+│ • Combines market data + news + knowledge                   │
+│ • Detects signal conflicts                                  │
+│ • Generates structured intelligence reports                 │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       OUTPUT LAYER                          │
+│                                                             │
+│ • Market Snapshot                                           │
+│ • News Summary                                              │
+│ • Background Brief                                          │
+│ • Sentiment Score                                           │
+│ • Risk Signals                                              │
+│ • Final Intelligence Report                                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+# 🔍 Observability & Monitoring
+
+CryptoSense integrates **Langfuse** for LLM observability.
+
+Langfuse tracks:
+
+- User queries
+- Agent reasoning traces
+- Tool calls
+- Token usage
+- Latency
+- Prompt versions
+
+Monitoring pipeline:
+
+```
+User Query
+   ↓
+Agent Execution
+   ↓
+Langfuse Trace Logging
+   ↓
+Observability Dashboard
+```
+
+This helps debug issues like:
+
+- hallucinations
+- incorrect tool calls
+- slow responses
+- high token costs
+
+---
+
+# 📊 Evaluation
+
+The system integrates **DeepEval** for automated evaluation of agent responses.
+
+Evaluation metrics include:
+
+| Metric | Description |
+|------|-------------|
+| Task Completion | Whether the agent solved the task |
+| Tool Usage Accuracy | Correct tool selection |
+| Answer Relevance | Response matches user intent |
+| Faithfulness | Output grounded in retrieved data |
+| Latency | Time taken per request |
+
+Evaluation workflow:
+
+```
+Test Queries
+     ↓
+Agent Execution
+     ↓
+DeepEval Evaluation
+     ↓
+Evaluation Metrics
+```
 
 ---
 
@@ -99,64 +196,43 @@ python gradio_app.py
 
 | File | Purpose |
 |------|---------|
-| `main.py` | CLI with verbose tool logging |
+| `.env.example` | Template for environment setup |
+| `evaluation.py` | RAGAS/DeepEval evaluation script |
 | `gradio_app.py` | Web UI interface |
-| `workflow.py` | LangGraph workflow definition |
-| `agents.py` | 5 specialized agents |
-| `tools.py` | 7 API tools (CoinGecko, RSS, Wikipedia) |
-| `state.py` | Workflow state schema |
-| `validation.py` | Input/output security layer |
+| `mcp_client.py` | MCP client for connecting to MCP server |
+| `mcp_server.py` | MCP server exposing tools |
+| `monitoring.py` | Backend monitoring & metrics logging |
+| `validation.py` | Security & input validation layer |
 
 ---
 
-## 🔧 Usage Examples
-
-### CLI
-```bash
-python main.py "What is Bitcoin's price?"
-python main.py "Tell me about Ethereum"
-```
-
-### Web UI
-```bash
-python gradio_app.py
-# Open http://localhost:7860
-```
-
-### Example Queries
-- "What is Bitcoin's current price?"
-- "Tell me about Ethereum"
-- "What's trending in crypto?"
-- "Latest crypto news"
-- "Give me a full analysis of Solana"
-
----
-
-## 🛠️ Tools & APIs
-
-**No API keys needed** for data sources:
+# 🛠️ Tools & APIs
 
 | Tool | Source | Data |
-|------|--------|------|
-| Market | CoinGecko | Price, volume, market cap, trending |
-| News | CoinDesk RSS | Headlines, summaries |
-| Knowledge | Wikipedia | History, technology, founders |
+|-----|------|------|
+| Market Data | CoinGecko API | Price, volume, market cap |
+| Crypto News | CoinDesk RSS | Headlines, summaries |
+| Knowledge | Wikipedia API | Coin history, technology |
 
-**AI Model**: Groq Cloud (Llama 3.3 70B) - requires API key
+**AI Model**
 
----
-
-## 🛡️ Security Features
-
-- ✅ Input validation (XSS, SQL injection protection)
-- ✅ Output sanitization
-- ✅ Rate limiting (20 requests/minute)
-- ✅ Step counter (prevents infinite loops)
-- ✅ Timeout handling (10s per API call)
+Groq Cloud  
+Model: **Llama 3.3 70B**
 
 ---
 
-## 📊 Output Format
+# 🛡️ Security Features
+
+- Input validation (XSS protection)
+- Output sanitization
+- Rate limiting (20 requests/min)
+- Infinite loop prevention
+- API timeout handling
+- Structured tool validation
+
+---
+
+# 📊 Output Format
 
 ```
 CRYPTOSENSE INTELLIGENCE REPORT
@@ -166,30 +242,35 @@ CRYPTOSENSE INTELLIGENCE REPORT
 📰 News Digest
 📚 Background Brief
 🎯 Analysis & Signals
-📈 Sentiment: Bullish/Bearish/Neutral
-🔒 Confidence: Low/Medium/High
+📈 Sentiment: Bullish / Bearish / Neutral
+🔒 Confidence Score
 ⚠️ Risk Factors
 ```
 
 ---
 
-## ⚙️ Configuration
+# ⚙️ Configuration
 
-**Adjust in `agents.py`:**
+Adjust parameters in `agents.py`:
+
 ```python
-MAX_STEPS = 10        # Prevent infinite loops
-max_tokens = 1024     # Cost control
-temperature = 0       # Deterministic output
+MAX_STEPS = 10
+temperature = 0
+max_tokens = 1024
 ```
 
 ---
 
-## 📄 License
+# 📄 License
 
 MIT License
 
 ---
 
-**Built with** LangGraph • Groq • CoinGecko • Wikipedia
+**Built with**
+
+LangGraph • MCP • Groq • Langfuse • DeepEval • CoinGecko • Wikipedia
+
+---
 
 ⚠️ *For informational purposes only. Not financial advice.*
