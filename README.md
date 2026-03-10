@@ -247,17 +247,7 @@ CRYPTOSENSE INTELLIGENCE REPORT
 ⚠️ Risk Factors
 ```
 
----
 
-# ⚙️ Configuration
-
-Adjust parameters in `agents.py`:
-
-```python
-MAX_STEPS = 10
-temperature = 0
-max_tokens = 1024
-```
 
 ---
 
