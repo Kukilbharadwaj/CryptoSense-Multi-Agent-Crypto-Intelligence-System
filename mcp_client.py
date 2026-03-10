@@ -1,16 +1,4 @@
-"""
-CryptoSense MCP Client
-========================
-Connects to a RUNNING CryptoSense MCP Server via SSE transport and
-orchestrates crypto intelligence queries using Groq LLM with tool calling.
 
-Architecture:
-  1. Start MCP Server:  python mcp_server.py --transport sse
-  2. Start Gradio:      python gradio_app.py
-  3. Gradio → MCP Client → SSE → MCP Server → Tools → APIs
-
-If the MCP server is not running, the client will return an error.
-"""
 
 import os
 import sys
@@ -29,9 +17,9 @@ load_dotenv()
 MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://127.0.0.1:8000/sse")
 
 
-# ═══════════════════════════════════════════
+
 # 1. MCP Client Core
-# ═══════════════════════════════════════════
+
 
 class CryptoSenseMCPClient:
     """
@@ -139,13 +127,13 @@ class CryptoSenseMCPClient:
             "═══════════════════════════════════════\n"
             "     CRYPTOSENSE INTELLIGENCE REPORT\n"
             "═══════════════════════════════════════\n"
-            "📊 MARKET SNAPSHOT\n"
-            "📰 NEWS DIGEST\n"
-            "📚 BACKGROUND BRIEF\n"
-            "🎯 ANALYSIS & SIGNALS\n"
-            "📈 SENTIMENT: [Bullish/Bearish/Neutral]\n"
-            "🔒 CONFIDENCE: [Low/Medium/High]\n"
-            "⚠️ RISK FACTORS\n"
+            " MARKET SNAPSHOT\n"
+            " NEWS DIGEST\n"
+            " BACKGROUND BRIEF\n"
+            " ANALYSIS & SIGNALS\n"
+            " SENTIMENT: [Bullish/Bearish/Neutral]\n"
+            " CONFIDENCE: [Low/Medium/High]\n"
+            " RISK FACTORS\n"
             "═══════════════════════════════════════"
         )
 
@@ -242,9 +230,9 @@ class CryptoSenseMCPClient:
         return {"report": final_content, "metrics": metrics}
 
 
-# ═══════════════════════════════════════════
+
 # 2. High-Level Runner (SSE Transport)
-# ═══════════════════════════════════════════
+
 
 async def _run_query_async(query: str, server_url: str = MCP_SERVER_URL) -> dict:
     """
@@ -265,7 +253,7 @@ async def _run_query_async(query: str, server_url: str = MCP_SERVER_URL) -> dict
                 return result
     except (ConnectionError, OSError) as e:
         return {
-            "report": f"❌ MCP Server is not running!\n\nStart it first:\n  python mcp_server.py --transport sse\n\nServer URL: {server_url}",
+            "report": f" MCP Server is not running!\n\nStart it first:\n  python mcp_server.py --transport sse\n\nServer URL: {server_url}",
             "metrics": _empty_metrics(),
         }
     except BaseExceptionGroup as eg:
@@ -273,7 +261,7 @@ async def _run_query_async(query: str, server_url: str = MCP_SERVER_URL) -> dict
         for exc in eg.exceptions:
             if isinstance(exc, (ConnectionError, OSError)):
                 return {
-                    "report": f"❌ MCP Server is not running!\n\nStart it first:\n  python mcp_server.py --transport sse\n\nServer URL: {server_url}",
+                    "report": f" MCP Server is not running!\n\nStart it first:\n  python mcp_server.py --transport sse\n\nServer URL: {server_url}",
                     "metrics": _empty_metrics(),
                 }
         raise
@@ -310,7 +298,7 @@ def run_query(query: str, server_url: str = MCP_SERVER_URL) -> dict:
         if _is_connection_error(e):
             return {
                 "report": (
-                    "❌ **MCP Server is not running!**\n\n"
+                    " **MCP Server is not running!**\n\n"
                     "Start the server first:\n"
                     "```\npython mcp_server.py --transport sse\n```\n\n"
                     f"Server URL: {server_url}"
@@ -318,7 +306,7 @@ def run_query(query: str, server_url: str = MCP_SERVER_URL) -> dict:
                 "metrics": _empty_metrics(),
             }
         return {
-            "report": f"❌ Error: {e}",
+            "report": f" Error: {e}",
             "metrics": _empty_metrics(),
         }
 
@@ -349,9 +337,9 @@ def check_server(server_url: str = MCP_SERVER_URL) -> bool:
         return False
 
 
-# ═══════════════════════════════════════════
+
 # 3. CLI for quick testing
-# ═══════════════════════════════════════════
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -359,15 +347,15 @@ if __name__ == "__main__":
     else:
         q = "Tell me about Bitcoin"
 
-    print(f"\n🔮 CryptoSense MCP Client")
+    print(f"\n CryptoSense MCP Client")
     print(f"Server: {MCP_SERVER_URL}")
 
     if not check_server():
-        print(f"\n❌ MCP Server is NOT running at {MCP_SERVER_URL}")
+        print(f"\n MCP Server is NOT running at {MCP_SERVER_URL}")
         print(f"Start it first:  python mcp_server.py --transport sse\n")
         sys.exit(1)
 
-    print(f"✅ Server connected")
+    print(f" Server connected")
     print(f"Query: {q}\n")
 
     result = run_query(q)

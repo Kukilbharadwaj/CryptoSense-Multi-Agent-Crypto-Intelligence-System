@@ -1,38 +1,3 @@
-"""
-CryptoSense MCP Server
-========================
-Exposes CryptoSense as a Model Context Protocol (MCP) server using the
-official `mcp` SDK (FastMCP).
-
-Capabilities:
-─────────────
-Tools (7):
-  • get_coin_price        – Live price, 24h change, market cap, volume
-  • get_trending_coins    – Top trending coins from CoinGecko
-  • get_coin_details      – Detailed stats (ATH, ATL, supply, rank)
-  • get_crypto_news       – Coin-specific news via CoinDesk RSS
-  • get_general_crypto_news – Latest crypto headlines
-  • get_wiki_summary      – Wikipedia summary for any crypto topic
-  • get_crypto_history    – Historical / foundational info
-
-Resources (2):
-  • cryptosense://status          – System health & monitoring status
-  • cryptosense://dashboard       – Aggregate metrics & evaluation dashboard
-
-Prompts (2):
-  • crypto_analysis   – Full multi-agent intelligence report for a coin
-  • quick_price       – Quick price check for a coin
-
-Transports:
-  • stdio   (default) – for Claude Desktop / VS Code / CLI
-  • SSE     – for web clients
-  • Streamable HTTP   – modern MCP transport
-
-Usage:
-  python mcp_server.py                    # stdio (default)
-  python mcp_server.py --transport sse    # SSE on http://127.0.0.1:8000/sse
-  python mcp_server.py --transport http   # Streamable HTTP on http://127.0.0.1:8000/mcp
-"""
 
 import os
 import sys
@@ -45,9 +10,9 @@ from mcp.server.fastmcp import FastMCP
 
 load_dotenv()
 
-# ═══════════════════════════════════════════
+
 # 1. Initialize FastMCP Server
-# ═══════════════════════════════════════════
+
 
 mcp = FastMCP(
     name="CryptoSense",
@@ -61,9 +26,9 @@ specific data points.""",
 )
 
 
-# ═══════════════════════════════════════════
+
 # 2. Tools – Market Data (CoinGecko)
-# ═══════════════════════════════════════════
+
 
 @mcp.tool()
 def get_coin_price(coin_id: str) -> str:
@@ -174,9 +139,9 @@ def get_coin_details(coin_id: str) -> str:
         return f"Coin Details Error: {e}"
 
 
-# ═══════════════════════════════════════════
+
 # 3. Tools – News (CoinDesk RSS)
-# ═══════════════════════════════════════════
+
 
 @mcp.tool()
 def get_crypto_news(coin_name: str) -> str:
@@ -232,9 +197,8 @@ def get_general_crypto_news() -> str:
         return f"General News Error: {e}"
 
 
-# ═══════════════════════════════════════════
 # 4. Tools – Knowledge (Wikipedia)
-# ═══════════════════════════════════════════
+
 
 @mcp.tool()
 def get_wiki_summary(topic: str) -> str:
@@ -305,9 +269,9 @@ def get_crypto_history(coin_name: str) -> str:
         return f"History Lookup Error: {e}"
 
 
-# ═══════════════════════════════════════════
+
 # 5. Resources
-# ═══════════════════════════════════════════
+
 
 @mcp.resource("cryptosense://status")
 def system_status() -> str:
@@ -363,9 +327,9 @@ def monitoring_dashboard() -> str:
         return "Dashboard: No data yet. Run some queries first."
 
 
-# ═══════════════════════════════════════════
+
 # 6. Prompts
-# ═══════════════════════════════════════════
+
 
 @mcp.prompt()
 def crypto_analysis(coin: str) -> str:
@@ -402,9 +366,8 @@ def quick_price(coin: str) -> str:
     return f"Use the get_coin_price tool with coin_id='{coin}' and report the current price, 24h change, and volume."
 
 
-# ═══════════════════════════════════════════
 # 7. Run Server
-# ═══════════════════════════════════════════
+
 
 def main():
     parser = argparse.ArgumentParser(description="CryptoSense MCP Server")

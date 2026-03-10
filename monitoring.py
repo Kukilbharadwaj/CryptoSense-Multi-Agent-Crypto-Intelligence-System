@@ -1,16 +1,4 @@
-"""
-CryptoSense Monitoring Module
-===============================
-Production-level observability using Langfuse v4 (OpenTelemetry-based).
 
-Tracks:
-- Traces per query (end-to-end)
-- Spans per agent (orchestrator, market, news, knowledge, analyst)
-- Token usage & cost per LLM call
-- Latency per agent and per tool
-- Tool invocation details (inputs, outputs, errors)
-- Custom metrics: step count, task routing, error rates
-"""
 
 import os
 import time
@@ -20,9 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ------------------------------------
-# Langfuse Client Singleton
-# ------------------------------------
+
 
 _langfuse_client = None
 _langfuse_enabled = False
@@ -84,9 +70,9 @@ def flush():
             pass
 
 
-# ------------------------------------
+
 # Trace Context Manager
-# ------------------------------------
+
 
 class TraceContext:
     """
@@ -307,9 +293,9 @@ class TraceContext:
         }
 
 
-# ------------------------------------
+
 # Metrics Store (in-memory for dashboard)
-# ------------------------------------
+
 
 class MetricsStore:
     """

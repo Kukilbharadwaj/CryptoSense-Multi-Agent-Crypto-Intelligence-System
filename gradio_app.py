@@ -1,9 +1,4 @@
-"""
-CryptoSense Gradio UI - MCP Edition
-======================================
-Web interface powered by MCP Client → MCP Server architecture.
-All tool calls go through the Model Context Protocol.
-"""
+
 
 import time
 import gradio as gr
@@ -19,7 +14,7 @@ def process_query(query: str):
     # Check MCP Server connectivity
     if not check_server():
         return (
-            "❌ **MCP Server is not running!**\n\n"
+            " **MCP Server is not running!**\n\n"
             "Start the server first:\n```\npython mcp_server.py --transport sse\n```",
             "",
         )
@@ -27,12 +22,12 @@ def process_query(query: str):
     # Rate limiting
     if not rate_limiter.is_allowed():
         wait_time = rate_limiter.get_wait_time()
-        return f"⏳ Rate limit reached. Please wait {wait_time} seconds.", ""
+        return f" Rate limit reached. Please wait {wait_time} seconds.", ""
 
     # Input validation
     is_valid, sanitized_query, error = validate_input(query)
     if not is_valid:
-        return f"❌ {error}", ""
+        return f" {error}", ""
 
     try:
         # Run query via MCP Client → MCP Server
@@ -75,28 +70,28 @@ def process_query(query: str):
         lines.append("═" * 50)
         lines.append("   METRICS & EVALUATION (MCP)")
         lines.append("═" * 50)
-        lines.append(f"\n⏱  Latency:          {mcp_metrics.get('total_latency_ms', 0):.0f} ms")
-        lines.append(f"🧠 LLM Calls:        {mcp_metrics.get('llm_calls', 0)}")
-        lines.append(f"🔧 Tool Calls:       {mcp_metrics.get('tool_calls', 0)}")
-        lines.append(f"❌ Tool Errors:       {mcp_metrics.get('tool_errors', 0)}")
-        lines.append(f"📊 Tokens:           {mcp_metrics.get('total_tokens', 0)}")
-        lines.append(f"🔧 Tools Used:       {', '.join(mcp_metrics.get('tools_invoked', []))}")
+        lines.append(f"\n  Latency:          {mcp_metrics.get('total_latency_ms', 0):.0f} ms")
+        lines.append(f" LLM Calls:        {mcp_metrics.get('llm_calls', 0)}")
+        lines.append(f" Tool Calls:       {mcp_metrics.get('tool_calls', 0)}")
+        lines.append(f" Tool Errors:       {mcp_metrics.get('tool_errors', 0)}")
+        lines.append(f" Tokens:           {mcp_metrics.get('total_tokens', 0)}")
+        lines.append(f" Tools Used:       {', '.join(mcp_metrics.get('tools_invoked', []))}")
 
         # Tool call details
         for td in mcp_metrics.get("tool_details", []):
-            status = "✅" if not td.get("error") else "❌"
+            status = "✅" if not td.get("error") else ""
             lines.append(f"   {status} {td['tool']}({td.get('args', {})}) → {td['latency_ms']}ms")
 
         # Evaluation scores
         lines.append(f"\n{'─' * 50}")
         overall = eval_data.get("overall_score", 0)
         passed = eval_data.get("passed", False)
-        lines.append(f"Overall Score:       {overall:.2%}  {'✅ PASSED' if passed else '❌ FAILED'}")
+        lines.append(f"Overall Score:       {overall:.2%}  {' PASSED' if passed else ' FAILED'}")
         lines.append(f"{'─' * 50}")
         lines.append(f"{'Metric':<25} {'Score':<8} {'Value':<15} {'Status'}")
         lines.append(f"{'─' * 50}")
         for m in eval_data.get("metrics", []):
-            status = "✅" if m.get("passed") else "❌"
+            status = "" if m.get("passed") else ""
             lines.append(f"{m['name']:<25} {m['score']:<8.2f} {str(m['value']):<15} {status}")
         lines.append("═" * 50)
         if eval_data.get("summary"):
@@ -105,7 +100,7 @@ def process_query(query: str):
         return sanitized_report, "\n".join(lines)
 
     except Exception as e:
-        return f"❌ Error: {str(e)}", ""
+        return f" Error: {str(e)}", ""
 
 
 def get_dashboard_data():

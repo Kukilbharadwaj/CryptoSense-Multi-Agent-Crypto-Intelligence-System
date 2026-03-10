@@ -1,21 +1,3 @@
-"""
-CryptoSense Evaluation Module
-===============================
-Production-level evaluation using DeepEval-inspired metrics.
-
-Metric Categories:
-| Category     | Metric               | Description                                     |
-|------------- |--------------------- |-------------------------------------------------|
-| Task success | Task completion rate | Did the system produce a valid report?           |
-| Tool usage   | Tool accuracy        | Did tools return data without errors?            |
-| Reasoning    | Step correctness     | Did orchestrator route correctly?                |
-| Efficiency   | Number of steps      | How many agent/tool steps were used?             |
-| Cost         | Token usage          | Total prompt + completion tokens                 |
-| Latency      | Time taken           | End-to-end and per-agent latency                 |
-
-Can operate standalone (no DeepEval dependency) or integrate with DeepEval
-when installed for advanced LLM-as-judge evaluation.
-"""
 
 import time
 import json
@@ -23,9 +5,9 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field, asdict
 
 
-# =============================================
+
 # 1. Metric Definitions
-# =============================================
+
 
 @dataclass
 class MetricResult:
@@ -91,9 +73,9 @@ class EvaluationReport:
         return "\n".join(lines)
 
 
-# =============================================
+
 # 2. Core Evaluator
-# =============================================
+
 
 class CryptoSenseEvaluator:
     """
@@ -342,9 +324,9 @@ class CryptoSenseEvaluator:
         return f"Failed metrics: {names}. Overall score: {overall:.2%}"
 
 
-# =============================================
-# 3. DeepEval Integration (optional)
-# =============================================
+
+# 3. DeepEval Integration 
+
 
 def run_deepeval_evaluation(
     query: str,
@@ -400,9 +382,8 @@ def run_deepeval_evaluation(
         return {"error": str(exc)}
 
 
-# =============================================
+
 # 4. Evaluation Store (in-memory history)
-# =============================================
 
 class EvaluationStore:
     """Keeps recent evaluation reports for the dashboard."""
