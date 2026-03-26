@@ -12,3 +12,6 @@ mcp>=1.0.0
 # Monitoring & Evaluation
 langfuse>=2.0.0
 deepeval>=1.0.0
+
+# Voice Agents
+edge-tts>=6.0.0

@@ -6,6 +6,12 @@ from mcp_client import run_query, check_server
 from validation import validate_input, validate_output, rate_limiter
 from evaluation import evaluator, evaluation_store
 from monitoring import metrics_store, is_monitoring_enabled
+from voice_agent import (
+    process_voice_query,
+    process_text_with_voice,
+    AVAILABLE_VOICES,
+    DEFAULT_VOICE,
+)
 
 
 def process_query(query: str):
@@ -271,7 +277,161 @@ def create_ui():
                 ).then(fn=process_query, inputs=[query_input], outputs=[report_output, eval_output])
 
             # ============================
-            # Tab 2: Monitoring Dashboard
+            # Tab 2: 🎙️ Voice Mode
+            # ============================
+            with gr.Tab("🎙️ Voice Mode"):
+                # Header
+                gr.Markdown("""
+                <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 50%, #4facfe 100%); border-radius: 15px; margin-bottom: 25px;">
+                    <h1 style="color: white; margin: 0; font-size: 38px;">🎙️ CryptoSense Voice</h1>
+                    <p style="color: #f0f0f0; margin: 10px 0 5px 0; font-size: 16px;">Speak your query — Hear the intelligence report</p>
+                    <p style="color: #ddd; margin: 0; font-size: 12px;">STT: Groq Whisper Large V3 • TTS: Orpheus V1 English • Powered by Groq Cloud</p>
+                </div>
+                """)
+
+                with gr.Row():
+                    with gr.Column(scale=2):
+                        # Mic input
+                        gr.Markdown("""
+                        <div style="margin-bottom: 8px;">
+                            <span style="color: #666; font-size: 14px; font-weight: 600;">🎤 Record Your Query</span>
+                        </div>
+                        """)
+                        voice_audio_input = gr.Audio(
+                            sources=["microphone", "upload"],
+                            type="filepath",
+                            label="",
+                            show_label=False,
+                        )
+
+                    with gr.Column(scale=1):
+                        # Voice selector
+                        gr.Markdown("""
+                        <div style="margin-bottom: 8px;">
+                            <span style="color: #666; font-size: 14px; font-weight: 600;">🗣️ Response Voice</span>
+                        </div>
+                        """)
+                        voice_selector = gr.Dropdown(
+                            choices=AVAILABLE_VOICES,
+                            value=DEFAULT_VOICE,
+                            label="",
+                            show_label=False,
+                            interactive=True,
+                        )
+
+                # Submit button
+                voice_submit_btn = gr.Button(
+                    "🎙️ Analyze Voice Query",
+                    variant="primary",
+                    size="lg",
+                )
+
+                # Quick voice actions
+                gr.Markdown("""
+                <div style="text-align: center; margin: 20px 0 12px 0;">
+                    <span style="color: #666; font-size: 14px; font-weight: 500;">⚡ Quick Voice Actions (type + speak response)</span>
+                </div>
+                """)
+
+                with gr.Row():
+                    vbtn_btc = gr.Button("🔊 Bitcoin Report", size="sm")
+                    vbtn_eth = gr.Button("🔊 Ethereum Report", size="sm")
+                    vbtn_sol = gr.Button("🔊 Solana Report", size="sm")
+                    vbtn_trend = gr.Button("🔊 Trending", size="sm")
+
+                # Outputs
+                gr.Markdown("""
+                <div style="margin: 25px 0 10px 0;">
+                    <span style="color: #666; font-size: 15px; font-weight: 600;">📝 Transcription</span>
+                </div>
+                """)
+                voice_transcription = gr.Textbox(
+                    label="",
+                    placeholder="Your spoken words will appear here...",
+                    lines=2,
+                    max_lines=4,
+                    interactive=False,
+                )
+
+                gr.Markdown("""
+                <div style="margin: 15px 0 10px 0;">
+                    <span style="color: #666; font-size: 15px; font-weight: 600;">📊 Intelligence Report</span>
+                </div>
+                """)
+                voice_report_output = gr.Textbox(
+                    label="",
+                    placeholder="Intelligence report will appear here...",
+                    lines=3,
+                    max_lines=25,
+                    interactive=False,
+                    autoscroll=False,
+                )
+
+                gr.Markdown("""
+                <div style="margin: 15px 0 10px 0;">
+                    <span style="color: #666; font-size: 15px; font-weight: 600;">🔊 Voice Response</span>
+                </div>
+                """)
+                voice_audio_output = gr.Audio(
+                    label="",
+                    show_label=False,
+                    type="filepath",
+                    autoplay=True,
+                    interactive=False,
+                )
+
+                voice_eval_output = gr.Textbox(
+                    label="",
+                    placeholder="Evaluation metrics...",
+                    lines=2,
+                    max_lines=15,
+                    interactive=False,
+                )
+
+                # Footer
+                gr.Markdown("""
+                <div style="text-align: center; margin-top: 25px; padding: 12px; border-top: 1px solid #e0e0e0;">
+                    <p style="color: #999; font-size: 12px; margin: 0;">🎤 Click the microphone → speak → click stop → hit Analyze</p>
+                </div>
+                """)
+
+                # ── Event Handlers ──
+
+                # Main voice submit
+                voice_submit_btn.click(
+                    fn=process_voice_query,
+                    inputs=[voice_audio_input, voice_selector],
+                    outputs=[voice_transcription, voice_report_output, voice_audio_output, voice_eval_output],
+                )
+
+                # Quick action buttons — typed query + TTS response
+                def _quick_voice(query, voice):
+                    report, audio, eval_info = process_text_with_voice(query, voice)
+                    return query, report, audio, eval_info
+
+                vbtn_btc.click(
+                    fn=lambda v: _quick_voice("Tell me about Bitcoin", v),
+                    inputs=[voice_selector],
+                    outputs=[voice_transcription, voice_report_output, voice_audio_output, voice_eval_output],
+                )
+                vbtn_eth.click(
+                    fn=lambda v: _quick_voice("Tell me about Ethereum", v),
+                    inputs=[voice_selector],
+                    outputs=[voice_transcription, voice_report_output, voice_audio_output, voice_eval_output],
+                )
+                vbtn_sol.click(
+                    fn=lambda v: _quick_voice("Tell me about Solana", v),
+                    inputs=[voice_selector],
+                    outputs=[voice_transcription, voice_report_output, voice_audio_output, voice_eval_output],
+                )
+                vbtn_trend.click(
+                    fn=lambda v: _quick_voice("What's trending in crypto?", v),
+                    inputs=[voice_selector],
+                    outputs=[voice_transcription, voice_report_output, voice_audio_output, voice_eval_output],
+                )
+
+            # ============================
+            # Tab 3: Monitoring Dashboard
             # ============================
             with gr.Tab("📈 Monitoring & Evaluation"):
                 gr.Markdown("""

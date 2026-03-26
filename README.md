@@ -11,6 +11,9 @@ AI-powered cryptocurrency analysis using **LangGraph agents, MCP architecture, G
 ## 1. Install Dependencies
 
 ```bash
+# Make sure to activate your virtual environment!
+# Windows: .\venv\Scripts\activate
+# Mac/Linux: source venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -43,20 +46,30 @@ python mcp_server.py --transport sse
 python gradio_app.py
 ```
 
-System Flow:
+### 🎙️ Using Voice Mode
+
+1. Open the **🎙️ Voice Mode** tab in the Gradio Web UI.
+2. Click **Record** on the microphone, speak your crypto query (e.g., "What is the price of Solana?"), and click **Stop**.
+3. Select your preferred AI Voice (Tara, Leah, Leo, etc.).
+4. Click **🎙️ Analyze Voice Query**. 
+5. The system will transcribe your speech via **Groq Whisper Large V3**, run the multi-agent analysis, and read the intelligence report back to you via high-quality **Microsoft Edge TTS**.
+
+---
+
+## 🏗️ System Flow
 
 ```
-Gradio UI
+Gradio UI / 🎙️ Voice Tab
+   ↓
+(Voice Mode: Whisper STT)
    ↓
 MCP Client
    ↓
 SSE Transport
    ↓
-MCP Server
+MCP Server (Agent Tools & External APIs)
    ↓
-Agent Tools
-   ↓
-External APIs
+(Voice Mode: Edge TTS Audio Response)
 ```
 
 ---
@@ -65,8 +78,9 @@ External APIs
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────────────────┐
 │                     USER INTERFACE                          │
-│                (CLI / Gradio Web UI)                        │
+│        (CLI / Gradio Web UI with 🎙️ Voice Mode)             │
 └───────────────────────┬─────────────────────────────────────┘
                         │
                         ▼
@@ -198,11 +212,12 @@ Evaluation Metrics
 |------|---------|
 | `.env.example` | Template for environment setup |
 | `evaluation.py` | RAGAS/DeepEval evaluation script |
-| `gradio_app.py` | Web UI interface |
+| `gradio_app.py` | Web UI interface with Voice Mode |
 | `mcp_client.py` | MCP client for connecting to MCP server |
 | `mcp_server.py` | MCP server exposing tools |
 | `monitoring.py` | Backend monitoring & metrics logging |
 | `validation.py` | Security & input validation layer |
+| `voice_agent.py`| STT (Whisper) & TTS (Edge TTS) orchestration |
 
 ---
 
@@ -213,11 +228,13 @@ Evaluation Metrics
 | Market Data | CoinGecko API | Price, volume, market cap |
 | Crypto News | CoinDesk RSS | Headlines, summaries |
 | Knowledge | Wikipedia API | Coin history, technology |
+| **STT (Voice)** | Groq (Whisper Large V3) | Real-time speech-to-text |
+| **TTS (Voice)** | Microsoft Edge TTS | High-quality, free voice AI |
 
 **AI Model**
 
 Groq Cloud  
-Model: **Llama 3.3 70B**
+Models: **Llama 3.3 70B** | **Whisper Large V3**
 
 ---
 
@@ -259,7 +276,7 @@ MIT License
 
 **Built with**
 
-LangGraph • MCP • Groq • Langfuse • DeepEval • CoinGecko • Wikipedia
+LangGraph • MCP • Groq • Langfuse • DeepEval • CoinGecko • Wikipedia • Edge TTS
 
 ---
 
